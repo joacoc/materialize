@@ -9,6 +9,11 @@ aliases:
   - /demos/business-intelligence/
 ---
 
+<figure>
+<div style="position:relative; padding-bottom:65.5%;">
+<iframe src="https://pitch.com/embed/8fcb10a2-ee2a-4f61-9d00-311b51670e50" allow="fullscreen" allowfullscreen="" height="368" style="width:100%;height:100%;position:absolute; border: 0;"></iframe>
+</div>
+</figure>
 {{% demos-warning %}}
 
 **tl;dr** Materialize can enable real-time monitoring within business
