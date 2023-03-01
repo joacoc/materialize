@@ -136,6 +136,12 @@ url = "/integrations"
 weight = 5
 
 [[menu.main]]
+identifier = "cli-reference"
+name = "CLI command reference"
+parent = "integrations"
+weight = 7
+
+[[menu.main]]
 identifier = "integration-guides"
 name = "Integration guides"
 parent = "integrations"
