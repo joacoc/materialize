@@ -13,7 +13,7 @@ The `mz region` command manages regions in your organization.
 
 Enable a region.
 
-```
+```shell
 mz region enable [<REGION>]
 ```
 
@@ -37,7 +37,7 @@ Flag                                | Description
 
 List all regions.
 
-```
+```shell
 mz region list
 ```
 
@@ -50,13 +50,20 @@ Flag                                | Description
 
 ### Examples
 
-TODO
+```
+$ mz region list
+
+Region                  | Status
+------------------------|-----------------------
+aws/us-east-1           | enabled
+aws/eu-west-1           | enabled
+```
 
 ## `status`
 
 Display detailed status for a region.
 
-```
+```shell
 mz region status [<REGION>]
 ```
 

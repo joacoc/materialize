@@ -13,7 +13,7 @@ The `mz auth` command manages authentication profiles for `mz`.
 
 Initialize an authentication profile.
 
-```
+```shell
 mz auth init [<PROFILE>] [flags...]
 ```
 
@@ -27,13 +27,20 @@ Flag                                | Description
 
 ### Examples
 
-TODO
+```
+$ mz auth init --interactive
+
+Email: remote@example.com
+Password: ...
+
+Successfully logged in.
+```
 
 ## `get`
 
 Get a configuration parameter in an authentication profile.
 
-```
+```shell
 mz auth get <NAME> <VALUE>
 ```
 
@@ -47,7 +54,7 @@ Flag                                | Description
 
 Get the default region for the `production` profile:
 
-```shell
+```
 $ mz auth get --profile=production region
 aws/us-east-1
 ```
@@ -57,13 +64,21 @@ aws/us-east-1
 
 List available authentication profiles.
 
-```
+```shell
 mz auth list
 ```
 
 ### Examples
 
-TODO
+```
+$ mz auth list
+
+Profile           |
+------------------|
+development       |
+production        |
+staging           |
+```
 
 ## `set`
 
@@ -83,7 +98,7 @@ Flag                                | Description
 
 Set the default region for the `production` profile:
 
-```
+```shell
 mz auth set --profile=production region aws/eu-west-1
 ```
 
@@ -91,13 +106,15 @@ mz auth set --profile=production region aws/eu-west-1
 
 Switch the active authentication profile.
 
-```
+```shell
 mz auth switch <PROFILE>
 ```
 
 ### Examples
 
-TODO
+```shell
+mz auth switch development
+```
 
 ## Global flags
 

@@ -13,7 +13,7 @@ The `mz config` command manages configuration for the CLI.
 
 Get a configuration parameter.
 
-```
+```shell
 mz config get <NAME> <VALUE>
 ```
 
@@ -30,13 +30,20 @@ keychain
 
 List all configuration parameters.
 
-```
+```shell
 mz config list
 ```
 
 ### Examples
 
-TODO
+```
+$ mz config list
+
+Parameter                   | Value
+----------------------------|-----------------------
+profile                     | default
+vault                       | keychain
+```
 
 ## `set`
 
@@ -50,7 +57,7 @@ mz config set <NAME> <VALUE>
 
 Set the default vault:
 
-```
+```shell
 mz config set vault inline
 ```
 

@@ -13,7 +13,7 @@ The `mz app-password` command manages app passwords for your user account.
 
 Create an app password.
 
-```
+```shell
 mz app-password create <NAME>
 ```
 
@@ -27,7 +27,7 @@ Flag                                | Description
 
 Create an app password for your production deployment:
 
-```shell
+```
 $ mz app-password create "Production Deployment"
 mzp_f283gag2t3...
 ```
@@ -36,7 +36,7 @@ mzp_f283gag2t3...
 
 List all app passwords.
 
-```
+```shell
 mz app-password list
 ```
 
@@ -52,10 +52,11 @@ List all app passwords:
 
 ```
 $ mz app-password list
-Name     Created at
--------------------------
-pass1    January 21, 2022
-pass2    January 23, 2022
+
+Name        | Created at
+------------|-----------------
+pass1       | January 21, 2022
+pass2       | January 23, 2022
 ...
 ```
 

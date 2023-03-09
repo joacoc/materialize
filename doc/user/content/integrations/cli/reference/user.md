@@ -30,7 +30,7 @@ Flag                                | Description
 
 Invite Franz Kafka to your organization:
 
-```
+```shell
 mz user create --name="Franz Kafka" --email=franz@kafka.org
 ```
 
@@ -38,13 +38,21 @@ mz user create --name="Franz Kafka" --email=franz@kafka.org
 
 List all users in the organization.
 
-```
+```shell
 mz user list
 ```
 
 ### Examples
 
-TODO
+```shell
+mz user list
+```
+```
+Email                       | Name
+----------------------------|------------------------
+production@example.com      | 2023-04-09T12:49:11.000Z
+development@example.com     | 2023-04-09T12:39:26.000Z
+```
 
 ## Global flags
 

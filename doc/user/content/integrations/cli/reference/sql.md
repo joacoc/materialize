@@ -26,13 +26,13 @@ Flag                                | Description
 
 Launch a SQL shell against the `aws/us-east-1` region:
 
-```
+```shell
 mz sql aws/us-east-1
 ```
 
 Execute a single SQL query against the `aws/us-east-1` region:
 
-```
+```shell
 mz sql aws/us-east-1 -- -c "SELECT * FROM mz_sources"
 ```
 
