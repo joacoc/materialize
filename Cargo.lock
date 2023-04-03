@@ -1109,6 +1109,7 @@ dependencies = [
  "once_cell",
  "reqwest",
  "serde",
+ "thiserror",
  "url",
  "workspace-hack",
 ]
