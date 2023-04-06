@@ -169,10 +169,6 @@ impl Client {
     ///
     /// E.g.: [us-east-1, eu-west-1]
     pub async fn list_cloud_providers(&self) -> Result<Vec<CloudProvider>, CloudApiError> {
-        let req = self
-            .request_with_subdomain(Method::GET, ["api", "cloud-regions"], "sync")
-            .await?;
-
         #[derive(Deserialize)]
         #[serde(rename_all = "camelCase")]
         struct CloudProviderResponse {
@@ -180,9 +176,26 @@ impl Client {
             #[serde(skip_serializing_if = "Option::is_none")]
             next_cursor: Option<String>,
         }
-        // TODO: Implement pagination
-        let response: CloudProviderResponse = self.send_request(req).await?;
+        let mut cloud_providers: Vec<CloudProvider> = vec![];
+        let mut cursor: String = String::new();
 
-        Ok(response.data)
+        loop {
+            let req = self
+            .request_with_subdomain(Method::GET, ["api", "cloud-regions"], "sync")
+            .await?;
+
+            let req = req.query(&[("limit", "50"), ("cursor", &cursor)]);
+
+            let response: CloudProviderResponse = self.send_request(req).await?;
+            cloud_providers.extend(response.data);
+
+            if let Some(next_cursor) = response.next_cursor {
+                cursor = next_cursor;
+            } else {
+                break;
+            }
+        }
+
+        Ok(cloud_providers)
     }
 }
