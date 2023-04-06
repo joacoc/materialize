@@ -105,7 +105,7 @@ impl Client {
         let subdomain = cloud_provider.rc_subdomain();
 
         let req = self
-            .request(Method::GET, ["api", "environmentassignment"], &subdomain)
+            .build_request(Method::GET, ["api", "environmentassignment"], &subdomain)
             .await?;
 
         let regions: Vec<Region> = self.send_request(req).await?;

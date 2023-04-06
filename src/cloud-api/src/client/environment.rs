@@ -96,7 +96,7 @@ impl Client {
 
         // Send request to the subdomain
         let req = self
-            .request(Method::GET, ["api", "environment"], &subdomain)
+            .build_request(Method::GET, ["api", "environment"], &subdomain)
             .await?;
 
         let environments: Vec<Environment> = self.send_request(req).await?;
@@ -143,19 +143,16 @@ impl Client {
 
         let subdomain = region.ec_subdomain();
         let req = self
-            .request(Method::POST, ["api", "environmentassignment"], &subdomain)
+            .build_request(Method::POST, ["api", "environmentassignment"], &subdomain)
             .await?;
         let req = req.json(&body);
         Ok(self.send_request(req).await?)
     }
 
-    pub async fn delete_environment(
-        &self,
-        region: Region
-    ) -> Result<Region, CloudApiError> {
+    pub async fn delete_environment(&self, region: Region) -> Result<Region, CloudApiError> {
         let subdomain = region.ec_subdomain();
         let req = self
-            .request(Method::DELETE, ["api", "environmentassignment"], &subdomain)
+            .build_request(Method::DELETE, ["api", "environmentassignment"], &subdomain)
             .await?;
         Ok(self.send_request(req).await?)
     }

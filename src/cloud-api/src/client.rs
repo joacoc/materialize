@@ -151,12 +151,12 @@ pub mod region;
 ///
 impl Client {
     /// Builds a request towards the `Client`'s endpoint
-    fn build_request<P>(
+    async fn build_request<P>(
         &self,
         method: Method,
         path: P,
         subdomain: &str,
-    ) -> RequestBuilder
+    ) -> Result<RequestBuilder, CloudApiError>
     where
         P: IntoIterator,
         P::Item: AsRef<str>,
@@ -172,22 +172,9 @@ impl Client {
             .clear()
             .extend(path);
 
-        self.inner.request(method, url)
-    }
-
-    async fn request<P>(
-        &self,
-        method: Method,
-        path: P,
-        subdomain: &str,
-    ) -> Result<RequestBuilder, CloudApiError>
-    where
-        P: IntoIterator,
-        P::Item: AsRef<str>,
-    {
-        // Makes a request using the frontegg client's authentication.
-        let req = self.build_request(method, path, subdomain);
+        let req = self.inner.request(method, url);
         let token = self.frontegg_client.auth().await.unwrap().token;
+
         Ok(req.bearer_auth(token))
     }
 
