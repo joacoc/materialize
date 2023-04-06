@@ -100,6 +100,15 @@ impl CloudProvider {
             _ => Err(CloudApiError::CloudProviderRegionParseError),
         }
     }
+
+    /// Returns the region controller endpoint subdomain
+    pub fn rc_subdomain(&self) -> String {
+        let host = self.api_url.host().unwrap().to_string();
+        let index = host.find("cloud.materialize.com").unwrap();
+        let subdomain: String = host[..index - 1].to_string();
+
+        subdomain
+    }
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
@@ -108,24 +117,6 @@ pub enum CloudProviderRegion {
     AwsUsEast1,
     #[serde(rename = "aws/eu-west-1")]
     AwsEuWest1,
-}
-
-/// Implementation to name the possible values and parse every option.
-impl CloudProviderRegion {
-    /// Return the region name inside a cloud provider.
-    pub fn region_name(self) -> &'static str {
-        match self {
-            CloudProviderRegion::AwsUsEast1 => "us-east-1",
-            CloudProviderRegion::AwsEuWest1 => "eu-west-1",
-        }
-    }
-
-    pub fn provider_name(self) -> &'static str {
-        match self {
-            CloudProviderRegion::AwsUsEast1 => "aws",
-            CloudProviderRegion::AwsEuWest1 => "aws",
-        }
-    }
 }
 
 impl CloudProviderRegion {
@@ -181,8 +172,8 @@ impl Client {
 
         loop {
             let req = self
-            .request_with_subdomain(Method::GET, ["api", "cloud-regions"], "sync")
-            .await?;
+                .request(Method::GET, ["api", "cloud-regions"], "sync")
+                .await?;
 
             let req = req.query(&[("limit", "50"), ("cursor", &cursor)]);
 

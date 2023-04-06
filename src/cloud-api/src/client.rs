@@ -121,21 +121,15 @@ impl ClientBuilder {
 
         Client {
             frontegg_client: config.frontegg_client,
-            auth: None,
             endpoint: self.endpoint,
             inner,
         }
     }
 }
 
-pub struct Auth {
-    token: String,
-}
-
 pub struct Client {
     inner: reqwest::Client,
     frontegg_client: mz_frontegg_auth::client::Client,
-    auth: Option<Auth>,
     endpoint: Url,
 }
 
@@ -146,33 +140,18 @@ pub mod region;
 
 /// Cloud endpoints architecture:
 ///
-///                           rc = region controller                   ec = environment controller
-///                     rc.{region}.{provider}.{endpoint}         ec.{n}.{region}.{provider}.{endpoint}
-///  ---------        --------------------------------------             ------------------------
-/// |          |      |          Region Controller           |          | Environment Controller |
-/// |  Cloud   |      |    ----------        -------------   |          |                        |
-/// |  Sync    | ---- |   | Provider | ---- |    Region   |  | -------- |       Environment      |
-/// |          |      |   | (aws..)  |      |  (east-1..) |  |          |  (pgwire_address...)   |
-/// |          |      |    ----------        -------------   |          |                        |
-///  ----------        --------------------------------------             -----------------------
+/// (CloudProvider)                         (Region)                                 (Environment)
+///   ---------              --------------------------------------            ------------------------
+///  |          |           |          Region Controller           |          | Environment Controller |
+///  |  Cloud   |  api_url  |    ----------        -------------   |  ec_url  |                        |
+///  |  Sync    | --------> |   | Provider | ---- |    Region   |  | -------> |       Environment      |
+///  |          |           |   | (aws..)  |      |  (east-1..) |  |          |  (pgwire_address...)   |
+///  |          |           |    ----------        -------------   |          |                        |
+///   ----------             --------------------------------------            -----------------------
 ///
 impl Client {
     /// Builds a request towards the `Client`'s endpoint
-    fn build_request<P>(&self, method: Method, path: P) -> RequestBuilder
-    where
-        P: IntoIterator,
-        P::Item: AsRef<str>,
-    {
-        let mut url = self.endpoint.clone();
-        url.path_segments_mut()
-            .expect("builder validated URL can be a base")
-            .clear()
-            .extend(path);
-        self.inner.request(method, url)
-    }
-
-    /// Builds a request towards the `Client`'s endpoint
-    fn build_request_with_subdomain<P>(
+    fn build_request<P>(
         &self,
         method: Method,
         path: P,
@@ -196,18 +175,7 @@ impl Client {
         self.inner.request(method, url)
     }
 
-    async fn request<P>(&self, method: Method, path: P) -> Result<RequestBuilder, CloudApiError>
-    where
-        P: IntoIterator,
-        P::Item: AsRef<str>,
-    {
-        // Makes a request using the frontegg client's authentication.
-        let req = self.build_request(method, path);
-        let token = self.frontegg_client.auth().await.unwrap().token;
-        Ok(req.bearer_auth(token))
-    }
-
-    async fn request_with_subdomain<P>(
+    async fn request<P>(
         &self,
         method: Method,
         path: P,
@@ -218,7 +186,7 @@ impl Client {
         P::Item: AsRef<str>,
     {
         // Makes a request using the frontegg client's authentication.
-        let req = self.build_request_with_subdomain(method, path, subdomain);
+        let req = self.build_request(method, path, subdomain);
         let token = self.frontegg_client.auth().await.unwrap().token;
         Ok(req.bearer_auth(token))
     }
@@ -287,7 +255,11 @@ mod tests {
         let all_environments = client.get_all_environments().await.unwrap();
         assert!(all_environments.len() == 2);
 
-        let cloud_provider = cloud_providers.iter().find(|cp| cp.id == "aws/us-east-1").unwrap().to_owned();
+        let cloud_provider = cloud_providers
+            .iter()
+            .find(|cp| cp.id == "aws/us-east-1")
+            .unwrap()
+            .to_owned();
 
         // Get a a region using a cloud provider
         let region = client.get_region(cloud_provider).await.unwrap();

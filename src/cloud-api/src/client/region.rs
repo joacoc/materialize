@@ -85,26 +85,27 @@ use super::{cloud_provider::CloudProvider, errors::CloudApiError, Client};
 #[serde(rename_all = "camelCase")]
 pub struct Region {
     pub cluster: String,
-    // https://ec.0.eu-....com:443
     pub environment_controller_url: Url,
 }
 
-impl Client {
-    pub async fn get_region(
-        &self,
-        cloud_provider: CloudProvider,
-    ) -> Result<Region, CloudApiError> {
-        // Build subdomain
-        let host = cloud_provider.api_url.host().unwrap().to_string();
+impl Region {
+    /// Returns the environment controller endpoint subdomain
+    pub fn ec_subdomain(&self) -> String {
+        let host = self.environment_controller_url.host().unwrap().to_string();
         let index = host.find("cloud.materialize.com").unwrap();
-        let subdomain: String = host[..index-1].to_string();
+        let subdomain: String = host[..index - 1].to_string();
+
+        subdomain
+    }
+}
+
+impl Client {
+    /// Get a region from a particular cloud provider for the current user.
+    pub async fn get_region(&self, cloud_provider: CloudProvider) -> Result<Region, CloudApiError> {
+        let subdomain = cloud_provider.rc_subdomain();
 
         let req = self
-            .request_with_subdomain(
-                Method::GET,
-                ["api", "environmentassignment"],
-                subdomain.as_str(),
-            )
+            .request(Method::GET, ["api", "environmentassignment"], &subdomain)
             .await?;
 
         let regions: Vec<Region> = self.send_request(req).await?;

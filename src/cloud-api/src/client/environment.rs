@@ -78,12 +78,7 @@
 use reqwest::Method;
 use serde::{Deserialize, Serialize};
 
-use super::{
-    cloud_provider::{CloudProvider, CloudProviderRegion},
-    errors::CloudApiError,
-    region::Region,
-    Client,
-};
+use super::{cloud_provider::CloudProvider, errors::CloudApiError, region::Region, Client};
 
 #[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -94,19 +89,14 @@ pub struct Environment {
 }
 
 impl Client {
-    // TODO: Replace CloudProviderRegion with Region.
-    pub async fn get_environment(
-        &self,
-        region: Region,
-    ) -> Result<Environment, CloudApiError> {
+    /// Get an environment in a partciular region for the current user.
+    pub async fn get_environment(&self, region: Region) -> Result<Environment, CloudApiError> {
         // Build subdomain:
-        let host = region.environment_controller_url.host().unwrap().to_string();
-        let index = host.find("cloud.materialize.com").unwrap();
-        let subdomain: String = host[..index-1].to_string();
+        let subdomain = region.ec_subdomain();
 
         // Send request to the subdomain
         let req = self
-            .request_with_subdomain(Method::GET, ["api", "environment"], &subdomain)
+            .request(Method::GET, ["api", "environment"], &subdomain)
             .await?;
 
         let environments: Vec<Environment> = self.send_request(req).await?;
@@ -127,10 +117,12 @@ impl Client {
         Ok(environments)
     }
 
+    /// Creates an environment in a particular region for the current user
     pub async fn create_environment(
         &self,
         version: Option<String>,
         environmentd_extra_args: Vec<String>,
+        region: Region,
     ) -> Result<Region, CloudApiError> {
         #[derive(Serialize)]
         #[serde(rename_all = "camelCase")]
@@ -149,8 +141,9 @@ impl Client {
             environmentd_extra_args,
         };
 
+        let subdomain = region.ec_subdomain();
         let req = self
-            .request(Method::POST, ["api", "environmentassignment"])
+            .request(Method::POST, ["api", "environmentassignment"], &subdomain)
             .await?;
         let req = req.json(&body);
         Ok(self.send_request(req).await?)
@@ -158,30 +151,12 @@ impl Client {
 
     pub async fn delete_environment(
         &self,
-        version: Option<String>,
-        environmentd_extra_args: Vec<String>,
+        region: Region
     ) -> Result<Region, CloudApiError> {
-        #[derive(Serialize)]
-        #[serde(rename_all = "camelCase")]
-        struct Body {
-            #[serde(skip_serializing_if = "Option::is_none")]
-            environmentd_image_ref: Option<String>,
-            #[serde(skip_serializing_if = "Vec::is_empty")]
-            environmentd_extra_args: Vec<String>,
-        }
-
-        let body = Body {
-            environmentd_image_ref: version.map(|v| match v.split_once(':') {
-                None => format!("materialize/environmentd:{v}"),
-                Some((user, v)) => format!("{user}/environmentd:{v}"),
-            }),
-            environmentd_extra_args,
-        };
-
+        let subdomain = region.ec_subdomain();
         let req = self
-            .request(Method::DELETE, ["api", "environmentassignment"])
+            .request(Method::DELETE, ["api", "environmentassignment"], &subdomain)
             .await?;
-        let req = req.json(&body);
         Ok(self.send_request(req).await?)
     }
 }
