@@ -41,4 +41,6 @@ pub enum CloudApiError {
     Api(#[from] ApiError),
     #[error("No environment available in this region.")]
     EmptyRegion,
+    #[error("Error parsing cloud provider.")]
+    CloudProviderRegionParseError,
 }

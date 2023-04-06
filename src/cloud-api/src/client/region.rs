@@ -75,71 +75,40 @@
 #![warn(clippy::from_over_into)]
 // END LINT CONFIG
 
-use reqwest::{Method};
+use reqwest::Method;
 use serde::Deserialize;
+use url::Url;
 
-use super::{environment::Environment, Client, CloudProvider, CloudProviderAndRegion, errors::CloudApiError};
+use super::{cloud_provider::CloudProvider, errors::CloudApiError, Client};
 
 #[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Region {
-    pub environment_controller_url: String,
+    pub cluster: String,
+    // https://ec.0.eu-....com:443
+    pub environment_controller_url: Url,
 }
 
 impl Client {
-    //// Get a cloud provider's region's environment
-    pub async fn region_environment_details(
+    pub async fn get_region(
         &self,
-        region: &Region,
-    ) -> Result<Option<Vec<Environment>>, CloudApiError> {
-        let request = self.build_request(Method::GET, ["api","environment"]);
-        let token = self.frontegg_client.auth().await.unwrap().token;
-        let response = request.bearer_auth(token).send().await?;
+        cloud_provider: CloudProvider,
+    ) -> Result<Region, CloudApiError> {
+        // Build subdomain
+        let host = cloud_provider.api_url.host().unwrap().to_string();
+        let index = host.find("cloud.materialize.com").unwrap();
+        let subdomain: String = host[..index-1].to_string();
 
-        match response.content_length() {
-            Some(length) => {
-                if length > 0 {
-                    Ok(Some(response.json::<Vec<Environment>>().await?))
-                } else {
-                    Ok(None)
-                }
-            }
-            None => Ok(None),
-        }
-    }
+        let req = self
+            .request_with_subdomain(
+                Method::GET,
+                ["api", "environmentassignment"],
+                subdomain.as_str(),
+            )
+            .await?;
 
-    //// Get a cloud provider's regions
-    pub async fn get_cloud_provider_region_details(
-        &self,
-        cloud_provider_region: &CloudProvider,
-    ) -> Result<Vec<Region>, CloudApiError> {
-        let request = self.build_request(Method::GET, ["api", "environmentassignment"]);
-        let token = self.frontegg_client.auth().await.unwrap().token;
-        let response = request.bearer_auth(token).send().await?;
+        let regions: Vec<Region> = self.send_request(req).await?;
 
-        Ok(response.json().await.unwrap())
-    }
-
-    pub async fn list_cloud_regions(&self, cloud_providers: Vec<&CloudProvider>) -> Result<Vec<CloudProviderAndRegion>, CloudApiError> {
-        // TODO: Run requests in parallel
-        let mut cloud_providers_and_regions: Vec<CloudProviderAndRegion> = Vec::new();
-
-        for cloud_provider in cloud_providers {
-            let cloud_provider_region_details = self
-                .get_cloud_provider_region_details(cloud_provider)
-                .await?;
-            match cloud_provider_region_details.get(0) {
-                Some(region) => cloud_providers_and_regions.push(CloudProviderAndRegion {
-                    cloud_provider: cloud_provider.clone(),
-                    region: Some(region.to_owned()),
-                }),
-                None => cloud_providers_and_regions.push(CloudProviderAndRegion {
-                    cloud_provider: cloud_provider.clone(),
-                    region: None,
-                }),
-            }
-        }
-
-        Ok(cloud_providers_and_regions)
+        Ok(regions.get(0).unwrap().to_owned())
     }
 }

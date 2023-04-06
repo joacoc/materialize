@@ -75,13 +75,15 @@
 #![warn(clippy::from_over_into)]
 // END LINT CONFIG
 
-use std::{str::FromStr, fmt::Display};
-
-use anyhow::bail;
-use reqwest::{Error, Method};
+use reqwest::Method;
 use serde::{Deserialize, Serialize};
 
-use super::{region::Region, Client, CloudProvider, errors::{CloudApiError}};
+use super::{
+    cloud_provider::{CloudProvider, CloudProviderRegion},
+    errors::CloudApiError,
+    region::Region,
+    Client,
+};
 
 #[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -91,123 +93,45 @@ pub struct Environment {
     pub resolvable: bool,
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-pub enum CloudProviderRegion {
-    #[serde(rename = "aws/us-east-1")]
-    AwsUsEast1,
-    #[serde(rename = "aws/eu-west-1")]
-    AwsEuWest1,
-}
-
-/// Implementation to name the possible values and parse every option.
-impl CloudProviderRegion {
-    /// Return the region name inside a cloud provider.
-    pub fn region_name(self) -> &'static str {
-        match self {
-            CloudProviderRegion::AwsUsEast1 => "us-east-1",
-            CloudProviderRegion::AwsEuWest1 => "eu-west-1",
-        }
-    }
-}
-
-impl Display for CloudProviderRegion {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            CloudProviderRegion::AwsUsEast1 => write!(f, "aws/us-east-1"),
-            CloudProviderRegion::AwsEuWest1 => write!(f, "aws/eu-west-1"),
-        }
-    }
-}
-
-impl FromStr for CloudProviderRegion {
-    type Err = CloudApiError;
-
-    fn from_str(s: &str) -> Result<Self> {
-        match s.to_lowercase().as_str() {
-            "aws/us-east-1" => Ok(CloudProviderRegion::AwsUsEast1),
-            "aws/eu-west-1" => Ok(CloudProviderRegion::AwsEuWest1),
-            _ => bail!("s"),
-        }
-    }
-}
-
 impl Client {
-    pub async fn get_environment(&self, region: &Region) -> Result<Environment, CloudApiError> {
-        // TODO: Improve error handling
-        let environment_details = self.region_environment_details(region).await?.unwrap();
-
-        let environment = environment_details.get(0);
-
-        match environment {
-            Some(_) => Ok(Environment {
-                environmentd_pgwire_address: "s".to_string(),
-                environmentd_https_address: "s".to_string(),
-                resolvable: true,
-            }),
-            None => CloudApiError::EmptyRegion,
-        }
-    }
-
-    pub async fn get_provider_by_region_name(
+    // TODO: Replace CloudProviderRegion with Region.
+    pub async fn get_environment(
         &self,
-        cloud_provider_region: &CloudProviderRegion,
-    ) -> Result<CloudProvider, CloudApiError> {
-        let cloud_providers = self
-            .list_cloud_providers("".parse())
-            .await?;
-
-        // Create a vec with only one region
-        let cloud_provider: CloudProvider = cloud_providers
-            .into_iter()
-            .find(|provider| provider.name == cloud_provider_region)
-            .unwrap();
-
-        Ok(cloud_provider)
-    }
-
-    pub async fn get_provider_region(
-        &self,
-        cloud_provider_region: &CloudProviderRegion,
-    ) -> Result<Region, CloudApiError> {
-        let cloud_provider = self
-            .get_provider_by_region_name(cloud_provider_region)
-            .await?;
-
-        let cloud_provider_region_details = self
-            .get_cloud_provider_region_details(&cloud_provider)
-            .await?;
-
-        let region = cloud_provider_region_details.get(0).unwrap();
-
-        Ok(region.to_owned())
-    }
-
-    pub async fn get_region_environment(&self, region: &Region) -> Result<Environment, Error> {
-        let environment_details = self.region_environment_details(region).await?.unwrap();
-        let environment = environment_details.get(0).unwrap();
-
-        Ok(environment.to_owned())
-    }
-
-    pub async fn get_all_environments(
-        &self,
-        cloud_provider_region: &CloudProviderRegion,
+        region: Region,
     ) -> Result<Environment, CloudApiError> {
-        let region = self
-            .get_provider_region(cloud_provider_region)
-            .await
-            .unwrap();
+        // Build subdomain:
+        let host = region.environment_controller_url.host().unwrap().to_string();
+        let index = host.find("cloud.materialize.com").unwrap();
+        let subdomain: String = host[..index-1].to_string();
 
-        let environment = self.get_region_environment(&region).await.unwrap();
+        // Send request to the subdomain
+        let req = self
+            .request_with_subdomain(Method::GET, ["api", "environment"], &subdomain)
+            .await?;
 
-        Ok(environment)
+        let environments: Vec<Environment> = self.send_request(req).await?;
+        Ok(environments.get(0).unwrap().to_owned())
+    }
+
+    /// Get all the available environments for the current user.
+    pub async fn get_all_environments(&self) -> Result<Vec<Environment>, CloudApiError> {
+        let cloud_providers: Vec<CloudProvider> = self.list_cloud_providers().await?;
+        let mut environments: Vec<Environment> = vec![];
+
+        for cloud_provider in cloud_providers {
+            let region = self.get_region(cloud_provider).await?;
+            let environment = self.get_environment(region).await?;
+            environments.push(environment);
+        }
+
+        Ok(environments)
     }
 
     pub async fn create_environment(
         &self,
         version: Option<String>,
         environmentd_extra_args: Vec<String>,
-    ) -> Result<Region, Error> {
+    ) -> Result<Region, CloudApiError> {
         #[derive(Serialize)]
         #[serde(rename_all = "camelCase")]
         struct Body {
@@ -225,15 +149,39 @@ impl Client {
             environmentd_extra_args,
         };
 
-        let request = self.build_request(Method::POST, ["api", "environmentassignment"]);
-        let token = self.frontegg_client.auth().await.unwrap().token;
-        let request = request
-            .bearer_auth(token)
-            .json(&body)
-            .send()
-            .await?
-            .json::<Region>()
-            .await;
-        request
+        let req = self
+            .request(Method::POST, ["api", "environmentassignment"])
+            .await?;
+        let req = req.json(&body);
+        Ok(self.send_request(req).await?)
+    }
+
+    pub async fn delete_environment(
+        &self,
+        version: Option<String>,
+        environmentd_extra_args: Vec<String>,
+    ) -> Result<Region, CloudApiError> {
+        #[derive(Serialize)]
+        #[serde(rename_all = "camelCase")]
+        struct Body {
+            #[serde(skip_serializing_if = "Option::is_none")]
+            environmentd_image_ref: Option<String>,
+            #[serde(skip_serializing_if = "Vec::is_empty")]
+            environmentd_extra_args: Vec<String>,
+        }
+
+        let body = Body {
+            environmentd_image_ref: version.map(|v| match v.split_once(':') {
+                None => format!("materialize/environmentd:{v}"),
+                Some((user, v)) => format!("{user}/environmentd:{v}"),
+            }),
+            environmentd_extra_args,
+        };
+
+        let req = self
+            .request(Method::DELETE, ["api", "environmentassignment"])
+            .await?;
+        let req = req.json(&body);
+        Ok(self.send_request(req).await?)
     }
 }

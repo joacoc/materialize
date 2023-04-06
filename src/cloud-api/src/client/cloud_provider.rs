@@ -75,18 +75,114 @@
 #![warn(clippy::from_over_into)]
 // END LINT CONFIG
 
-use reqwest::{Method, Url};
+use std::{fmt::Display, str::FromStr};
 
-use super::{Client, CloudProvider, errors::CloudApiError};
+use super::{errors::CloudApiError, region::Region, Client};
+use reqwest::Method;
+use serde::{Deserialize, Serialize};
+use url::Url;
+
+#[derive(Debug, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct CloudProvider {
+    pub id: String,
+    pub name: String,
+    // Region Controller URL
+    pub api_url: Url,
+    pub cloud_provider: String,
+}
+
+impl CloudProvider {
+    pub fn as_cloud_provider_region(&self) -> Result<CloudProviderRegion, CloudApiError> {
+        match self.id.as_str() {
+            "aws/us-east-1" => Ok(CloudProviderRegion::AwsUsEast1),
+            "aws/eu-west-1" => Ok(CloudProviderRegion::AwsEuWest1),
+            _ => Err(CloudApiError::CloudProviderRegionParseError),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub enum CloudProviderRegion {
+    #[serde(rename = "aws/us-east-1")]
+    AwsUsEast1,
+    #[serde(rename = "aws/eu-west-1")]
+    AwsEuWest1,
+}
+
+/// Implementation to name the possible values and parse every option.
+impl CloudProviderRegion {
+    /// Return the region name inside a cloud provider.
+    pub fn region_name(self) -> &'static str {
+        match self {
+            CloudProviderRegion::AwsUsEast1 => "us-east-1",
+            CloudProviderRegion::AwsEuWest1 => "eu-west-1",
+        }
+    }
+
+    pub fn provider_name(self) -> &'static str {
+        match self {
+            CloudProviderRegion::AwsUsEast1 => "aws",
+            CloudProviderRegion::AwsEuWest1 => "aws",
+        }
+    }
+}
+
+impl CloudProviderRegion {
+    pub fn from_cloud_provider(cloud_provider: CloudProvider) -> Result<Self, CloudApiError> {
+        match cloud_provider.id.as_str() {
+            "aws/us-east-1" => Ok(CloudProviderRegion::AwsUsEast1),
+            "aws/eu-west-1" => Ok(CloudProviderRegion::AwsEuWest1),
+            _ => Err(CloudApiError::CloudProviderRegionParseError),
+        }
+    }
+}
+
+impl Display for CloudProviderRegion {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            CloudProviderRegion::AwsUsEast1 => write!(f, "aws/us-east-1"),
+            CloudProviderRegion::AwsEuWest1 => write!(f, "aws/eu-west-1"),
+        }
+    }
+}
+
+impl FromStr for CloudProviderRegion {
+    type Err = CloudApiError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "aws/us-east-1" => Ok(CloudProviderRegion::AwsUsEast1),
+            "aws/eu-west-1" => Ok(CloudProviderRegion::AwsEuWest1),
+            _ => Err(CloudApiError::CloudProviderRegionParseError),
+        }
+    }
+}
+
+pub struct CloudProviderAndRegion {
+    pub cloud_provider: CloudProvider,
+    pub region: Option<Region>,
+}
 
 impl Client {
     /// List all the available cloud providers.
     ///
     /// E.g.: [us-east-1, eu-west-1]
-    pub async fn list_cloud_providers(&self, endpoint: Url) -> Result<Vec<CloudProvider>, CloudApiError> {
-        let request = self.build_request(Method::GET, [""]);
-        let token = self.frontegg_client.auth().await.unwrap().token;
-        let response = request.bearer_auth(token).send().await?;
-        response.json().await
+    pub async fn list_cloud_providers(&self) -> Result<Vec<CloudProvider>, CloudApiError> {
+        let req = self
+            .request_with_subdomain(Method::GET, ["api", "cloud-regions"], "sync")
+            .await?;
+
+        #[derive(Deserialize)]
+        #[serde(rename_all = "camelCase")]
+        struct CloudProviderResponse {
+            data: Vec<CloudProvider>,
+            #[serde(skip_serializing_if = "Option::is_none")]
+            next_cursor: Option<String>,
+        }
+        // TODO: Implement pagination
+        let response: CloudProviderResponse = self.send_request(req).await?;
+
+        Ok(response.data)
     }
 }

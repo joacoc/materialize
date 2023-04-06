@@ -79,9 +79,9 @@ use std::time::Duration;
 
 use once_cell::sync::Lazy;
 use reqwest::{Method, RequestBuilder, Url};
-use serde::Deserialize;
+use serde::{de::DeserializeOwned, Deserialize};
 
-use self::region::Region;
+use crate::client::errors::{ApiError, CloudApiError};
 
 pub static DEFAULT_ENDPOINT: Lazy<Url> =
     Lazy::new(|| "https://cloud.materialize.com".parse().unwrap());
@@ -139,25 +139,23 @@ pub struct Client {
     endpoint: Url,
 }
 
-#[derive(Debug, Deserialize, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct CloudProvider {
-    pub id: String,
-    pub name: String,
-    pub api_url: String,
-    pub cloud_provider: String,
-}
-
-pub struct CloudProviderAndRegion {
-    pub cloud_provider: CloudProvider,
-    pub region: Option<Region>,
-}
-
 pub mod cloud_provider;
 pub mod environment;
-pub mod region;
 pub mod errors;
+pub mod region;
 
+/// Cloud endpoints architecture:
+///
+///                           rc = region controller                   ec = environment controller
+///                     rc.{region}.{provider}.{endpoint}         ec.{n}.{region}.{provider}.{endpoint}
+///  ---------        --------------------------------------             ------------------------
+/// |          |      |          Region Controller           |          | Environment Controller |
+/// |  Cloud   |      |    ----------        -------------   |          |                        |
+/// |  Sync    | ---- |   | Provider | ---- |    Region   |  | -------- |       Environment      |
+/// |          |      |   | (aws..)  |      |  (east-1..) |  |          |  (pgwire_address...)   |
+/// |          |      |    ----------        -------------   |          |                        |
+///  ----------        --------------------------------------             -----------------------
+///
 impl Client {
     /// Builds a request towards the `Client`'s endpoint
     fn build_request<P>(&self, method: Method, path: P) -> RequestBuilder
@@ -173,48 +171,137 @@ impl Client {
         self.inner.request(method, url)
     }
 
-    // async fn request<T>(
-    //     &self,
-    //     method: Method,
-    //     path: &str,
-    //     body: Option<Body>,
-    // ) -> Result<RequestBuilder, Error> {
-    //     // Makes a request using the frontegg client's authentication.
-    //     let token = self.frontegg_client.auth().await.unwrap();
-    //     let request = self
-    //         .build_request(method, path)
-    //         .bearer_auth(token)
-    //         .body(body)
-    //         .send();
-    //     Ok(request)
-    // }
+    /// Builds a request towards the `Client`'s endpoint
+    fn build_request_with_subdomain<P>(
+        &self,
+        method: Method,
+        path: P,
+        subdomain: &str,
+    ) -> RequestBuilder
+    where
+        P: IntoIterator,
+        P::Item: AsRef<str>,
+    {
+        let mut url = self.endpoint.clone();
+
+        // Set the new host using a subdomain
+        let host = format!("{}.{}", subdomain, url.host().unwrap().to_owned());
+        url.set_host(Some(&host)).unwrap();
+
+        url.path_segments_mut()
+            .expect("builder validated URL can be a base")
+            .clear()
+            .extend(path);
+
+        self.inner.request(method, url)
+    }
+
+    async fn request<P>(&self, method: Method, path: P) -> Result<RequestBuilder, CloudApiError>
+    where
+        P: IntoIterator,
+        P::Item: AsRef<str>,
+    {
+        // Makes a request using the frontegg client's authentication.
+        let req = self.build_request(method, path);
+        let token = self.frontegg_client.auth().await.unwrap().token;
+        Ok(req.bearer_auth(token))
+    }
+
+    async fn request_with_subdomain<P>(
+        &self,
+        method: Method,
+        path: P,
+        subdomain: &str,
+    ) -> Result<RequestBuilder, CloudApiError>
+    where
+        P: IntoIterator,
+        P::Item: AsRef<str>,
+    {
+        // Makes a request using the frontegg client's authentication.
+        let req = self.build_request_with_subdomain(method, path, subdomain);
+        let token = self.frontegg_client.auth().await.unwrap().token;
+        Ok(req.bearer_auth(token))
+    }
+
+    async fn send_request<T>(&self, req: RequestBuilder) -> Result<T, CloudApiError>
+    where
+        T: DeserializeOwned,
+    {
+        #[derive(Deserialize)]
+        #[serde(rename_all = "camelCase")]
+        struct ErrorResponse {
+            #[serde(default)]
+            message: Option<String>,
+            #[serde(default)]
+            errors: Vec<String>,
+        }
+
+        let res = req.send().await?;
+        let status_code = res.status();
+        if status_code.is_success() {
+            Ok(res.json().await?)
+        } else {
+            match res.json::<ErrorResponse>().await {
+                Ok(e) => {
+                    let mut messages = e.errors;
+                    messages.extend(e.message);
+                    Err(CloudApiError::Api(ApiError {
+                        status_code,
+                        messages,
+                    }))
+                }
+                Err(_) => Err(CloudApiError::Api(ApiError {
+                    status_code,
+                    messages: vec!["unable to decode error details".into()],
+                })),
+            }
+        }
+    }
 }
 
-// TODO: nice error type. Use `rust_frontegg` for inspiration.
 #[cfg(test)]
 mod tests {
     use mz_frontegg_auth::app_password::AppPassword;
 
-    #[test]
-    fn test_app_password() {
+    use crate::client::{Client, ClientBuilder, ClientConfig};
+
+    #[tokio::test]
+    async fn test_app_password() {
         struct TestCase {
-            input: &'static str,
+            psw: &'static str,
         }
 
-        for tc in [
-            TestCase {
-                input: "mzp_7ce3c1e8ea854594ad5d785f17d1736f1947fdcef5404adb84a47347e5d30c9f",
-            },
-            TestCase {
-                input: "mzp_fOPB6OqFRZStXXhfF9FzbxlH_c71QErbhKRzR-XTDJ8",
-            },
-            TestCase {
-                input:
-                    "mzp_0445db36-5826-41af-84f6-e09402fc6171:a0c11434-07ba-426a-b83d-cc4f192325a3",
-            },
-        ] {
-            let app_password: AppPassword = tc.input.parse().unwrap();
-            // assert_eq!(app_password.to_string(), tc.expected_output);
-        }
+        let app_password: AppPassword = env!("MZ_PSW").parse().unwrap();
+        println!("{}", app_password);
+        let frontegg_client =
+            mz_frontegg_auth::client::Client::new(mz_frontegg_auth::config::ClientConfig {
+                app_password,
+            });
+        let client: Client = ClientBuilder::default().build(ClientConfig { frontegg_client });
+
+        // List all the available providers
+        let cloud_providers = client.list_cloud_providers().await.unwrap();
+        assert!(cloud_providers.len() == 2);
+
+        // Get all the environments
+        let all_environments = client.get_all_environments().await.unwrap();
+        assert!(all_environments.len() == 2);
+
+        let cloud_provider = cloud_providers.iter().find(|cp| cp.id == "aws/us-east-1").unwrap().to_owned();
+
+        // Get a a region using a cloud provider
+        let region = client.get_region(cloud_provider).await.unwrap();
+
+        assert!(
+            region.environment_controller_url.to_string()
+                == "https://ec.0.us-east-1.aws.cloud.materialize.com/"
+        );
+
+        let environment = client.get_environment(region).await.unwrap();
+
+        assert!(
+            environment.environmentd_https_address
+                == "da8gqtiy8g8jx8ni5c5g9gri0.us-east-1.aws.materialize.cloud:443"
+        );
     }
 }
