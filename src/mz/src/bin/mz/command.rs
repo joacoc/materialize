@@ -13,10 +13,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! `mz` is the Materialize command-line interface (CLI).
+//! Drivers for each `mz` command.
+//!
+//! Each submodule here is responsible only for command-line argument parsing.
+//! The implementation of each command is in the corresponding `command`
+//! submodule of the library crate.
 
-pub mod command;
-pub mod config_file;
-pub mod context;
-pub mod ui;
-pub  mod error;
+pub mod app_password;
+pub mod config;
+pub mod profile;
+pub mod region;
+pub mod secret;
+pub mod sql;
+pub mod user;

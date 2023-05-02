@@ -13,10 +13,35 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! `mz` is the Materialize command-line interface (CLI).
+//! Implementation of the `mz user` command.
+//!
+//! Consult the user-facing documentation for details.
 
-pub mod command;
-pub mod config_file;
-pub mod context;
-pub mod ui;
-pub  mod error;
+use crate::{context::ProfileContext, error::Error};
+
+pub struct CreateArgs<'a> {
+    pub email: &'a str,
+    pub name: &'a str,
+}
+
+pub  async fn create(
+    cx: &mut ProfileContext,
+    CreateArgs { email, name }: CreateArgs<'_>,
+) -> Result<(), Error> {
+    todo!()
+}
+
+pub  async fn list(cx: &mut ProfileContext) -> Result<(), Error> {
+    todo!()
+}
+
+pub struct RemoveArgs<'a> {
+    pub email: &'a str,
+}
+
+pub  async fn remove(
+    cx: &mut ProfileContext,
+    RemoveArgs { email }: RemoveArgs<'_>,
+) -> Result<(), Error> {
+    todo!()
+}

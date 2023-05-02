@@ -13,10 +13,27 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! `mz` is the Materialize command-line interface (CLI).
+//! Implementation of the `mz secret` command.
+//!
+//! Consult the user-facing documentation for details.
 
-pub mod command;
-pub mod config_file;
-pub mod context;
-pub mod ui;
-pub  mod error;
+use crate::{context::RegionContext, error::Error};
+
+pub struct CreateArgs<'a> {
+    pub database: Option<&'a str>,
+    pub schema: Option<&'a str>,
+    pub name: &'a str,
+    pub force: bool,
+}
+
+pub  async fn create(
+    cx: &mut RegionContext,
+    CreateArgs {
+        database,
+        schema,
+        name,
+        force,
+    }: CreateArgs<'_>,
+) -> Result<(), Error> {
+    todo!()
+}
