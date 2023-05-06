@@ -107,9 +107,21 @@ const BUILD_INFO: BuildInfo = build_info!();
 
 static VERSION: Lazy<String> = Lazy::new(|| BUILD_INFO.semver_version().to_string());
 
-/// Command-line interface for Materialize.
-#[derive(Debug, clap::Parser)]
-#[clap(
+// Do not add anything but structs/enums with Clap derives in this module!
+//
+// Clap v3 sometimes triggers this warning with subcommands,
+// and its unclear if it will be fixed in v3, and not just
+// in v4. This can't be overridden at the macro level, and instead must be overridden
+// at the module level.
+//
+// TODO(guswynn): remove this when we are using Clap v4.
+#[allow(clippy::almost_swapped)]
+mod clap_clippy_hack {
+    use super::*;
+
+    /// Command-line interface for Materialize.
+    #[derive(Debug, clap::Parser)]
+    #[clap(
     long_about = None,
     version = VERSION.as_str(),
 )]

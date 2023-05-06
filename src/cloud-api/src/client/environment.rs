@@ -26,12 +26,10 @@ use super::{cloud_provider::CloudProvider, region::Region, Client, Error};
 pub struct Environment {
     /// Represents the environmentd PG wire protocol address.
     ///
-    /// Format: <ID>.<REGION>.<PROVIDER>.materialize.cloud:6875
     /// E.g.: 3es24sg5rghjku7josdcs5jd7.eu-west-1.aws.materialize.cloud:6875
     pub environmentd_pgwire_address: String,
     /// Represents the environmentd PG wire protocol address.
     ///
-    /// Format: <ID>.<REGION>.<PROVIDER>.materialize.cloud:443
     /// E.g.: 3es24sg5rghjku7josdcs5jd7.eu-west-1.aws.materialize.cloud:443
     pub environmentd_https_address: String,
     /// Indicates true if the address is resolvable by DNS.
@@ -96,7 +94,7 @@ impl Client {
             .build_request(Method::POST, ["api", "environmentassignment"], &subdomain)
             .await?;
         let req = req.json(&body);
-        Ok(self.send_request(req).await?)
+        self.send_request(req).await
     }
 
     /// Deletes an environment in a particular region for the current user
@@ -105,6 +103,6 @@ impl Client {
         let req = self
             .build_request(Method::DELETE, ["api", "environmentassignment"], &subdomain)
             .await?;
-        Ok(self.send_request(req).await?)
+        self.send_request(req).await
     }
 }
