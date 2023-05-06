@@ -14,7 +14,7 @@ csv = "1.2.1"
 dirs = "4.0.0"
 indicatif = "0.17.2"
 maplit = "1.0.2"
-cloud-api = { path = "../cloud-api" }
+mz-cloud-api = { path = "../cloud-api" }
 mz-frontegg-client = { path = "../frontegg-client" }
 mz-frontegg-auth = { path = "../frontegg-auth" }
 mz-build-info = { path = "../build-info" }

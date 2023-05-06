@@ -24,8 +24,8 @@ use std::path::PathBuf;
 use crate::config_file::ConfigFile;
 use crate::error::Error;
 use crate::ui::{OutputFormat, OutputFormatter};
-use cloud_api::client::Client as CloudClient;
-use cloud_api::config::{ClientBuilder as CloudClientBuilder, ClientConfig as CloudClientConfig};
+use mz_cloud_api::client::Client as CloudClient;
+use mz_cloud_api::config::{ClientBuilder as CloudClientBuilder, ClientConfig as CloudClientConfig};
 use mz_frontegg_client::client::Client as AdminClient;
 use mz_frontegg_client::config::{
     ClientBuilder as AdminClientBuilder, ClientConfig as AdminClientConfig,

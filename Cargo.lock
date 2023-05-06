@@ -3358,12 +3358,12 @@ dependencies = [
  "axum",
  "base64 0.13.1",
  "clap",
- "cloud-api",
  "csv",
  "dirs",
  "indicatif",
  "maplit",
  "mz-build-info",
+ "mz-cloud-api",
  "mz-frontegg-auth",
  "mz-frontegg-client",
  "mz-ore",
@@ -8540,6 +8540,15 @@ name = "windows_x86_64_msvc"
 version = "0.48.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1a515f5799fe4961cb532f983ce2b23082366b898e52ffbce459c86f67c8378a"
+
+[[package]]
+name = "winnow"
+version = "0.4.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "61de7bac303dc551fe038e2b3cef0f571087a47571ea6e79a87692ac99b99699"
+dependencies = [
+ "memchr",
+]
 
 [[package]]
 name = "winreg"

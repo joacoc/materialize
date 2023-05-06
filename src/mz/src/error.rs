@@ -18,7 +18,7 @@ pub enum Error {
     AdminError(#[from] mz_frontegg_client::error::Error),
     /// A Materialize Cloud API error from the [`cloud_api`] crate.
     #[error(transparent)]
-    ApiError(#[from] cloud_api::error::Error),
+    ApiError(#[from] mz_cloud_api::error::Error),
     /// Error parsing (serializing/deserializing) a JSON.
     #[error("Error parsing JSON: {0}")]
     JsonParseError(#[from] serde_json::Error),
