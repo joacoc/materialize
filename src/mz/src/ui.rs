@@ -40,7 +40,7 @@ impl OutputFormatter {
     }
 
     /// Outputs a single value.
-    pub  fn output_scalar(&self, scalar: Option<&str>) -> Result<(), Error> {
+    pub fn output_scalar(&self, scalar: Option<&str>) -> Result<(), Error> {
         match self.output_format {
             OutputFormat::Text => println!("{}", scalar.display_or("<unset>")),
             OutputFormat::Json => serde_json::to_writer(io::stdout(), &scalar)?,
@@ -60,7 +60,7 @@ impl OutputFormatter {
     /// output. The `Deserialize` implementation is used to determine column
     /// names for CSV output when no rows are present. The `Tabled`
     /// implementation is used for text output.
-    pub  fn output_table<'a, I, R>(&self, rows: I) -> Result<(), Error>
+    pub fn output_table<'a, I, R>(&self, rows: I) -> Result<(), Error>
     where
         I: IntoIterator<Item = R>,
         R: Deserialize<'a> + Serialize + Tabled,

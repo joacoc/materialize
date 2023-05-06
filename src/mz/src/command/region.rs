@@ -17,7 +17,6 @@
 //!
 //! Consult the user-facing documentation for details.
 
-
 use crate::{context::RegionContext, error::Error};
 
 pub async fn enable(cx: &mut RegionContext) -> Result<(), Error> {

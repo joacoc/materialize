@@ -19,15 +19,15 @@
 
 use crate::{context::ProfileContext, error::Error};
 
-pub  async fn init(cx: &mut ProfileContext) -> Result<(), Error> {
+pub async fn init(cx: &mut ProfileContext) -> Result<(), Error> {
     todo!()
 }
 
-pub  async fn list(cx: &mut ProfileContext) -> Result<(), Error> {
+pub async fn list(cx: &mut ProfileContext) -> Result<(), Error> {
     todo!()
 }
 
-pub  async fn remove(cx: &mut ProfileContext) -> Result<(), Error> {
+pub async fn remove(cx: &mut ProfileContext) -> Result<(), Error> {
     todo!()
 }
 
@@ -35,14 +35,14 @@ pub struct ConfigGetArgs<'a> {
     pub name: &'a str,
 }
 
-pub  async fn config_get(
+pub async fn config_get(
     cx: &mut ProfileContext,
     ConfigGetArgs { name }: ConfigGetArgs<'_>,
 ) -> Result<(), Error> {
     todo!()
 }
 
-pub  async fn config_list(cx: &mut ProfileContext) -> Result<(), Error> {
+pub async fn config_list(cx: &mut ProfileContext) -> Result<(), Error> {
     todo!()
 }
 
@@ -51,7 +51,7 @@ pub struct ConfigSetArgs<'a> {
     pub value: &'a str,
 }
 
-pub  async fn config_set(
+pub async fn config_set(
     cx: &mut ProfileContext,
     ConfigSetArgs { name, value }: ConfigSetArgs<'_>,
 ) -> Result<(), Error> {
@@ -62,7 +62,7 @@ pub struct ConfigRemoveArgs<'a> {
     pub name: &'a str,
 }
 
-pub  async fn config_remove(
+pub async fn config_remove(
     cx: &mut ProfileContext,
     ConfigRemoveArgs { name }: ConfigRemoveArgs<'_>,
 ) -> Result<(), Error> {

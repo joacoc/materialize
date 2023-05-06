@@ -26,7 +26,7 @@ pub struct CreateArgs<'a> {
     pub force: bool,
 }
 
-pub  async fn create(
+pub async fn create(
     cx: &mut RegionContext,
     CreateArgs {
         database,

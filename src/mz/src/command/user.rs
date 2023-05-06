@@ -24,14 +24,14 @@ pub struct CreateArgs<'a> {
     pub name: &'a str,
 }
 
-pub  async fn create(
+pub async fn create(
     cx: &mut ProfileContext,
     CreateArgs { email, name }: CreateArgs<'_>,
 ) -> Result<(), Error> {
     todo!()
 }
 
-pub  async fn list(cx: &mut ProfileContext) -> Result<(), Error> {
+pub async fn list(cx: &mut ProfileContext) -> Result<(), Error> {
     todo!()
 }
 
@@ -39,7 +39,7 @@ pub struct RemoveArgs<'a> {
     pub email: &'a str,
 }
 
-pub  async fn remove(
+pub async fn remove(
     cx: &mut ProfileContext,
     RemoveArgs { email }: RemoveArgs<'_>,
 ) -> Result<(), Error> {

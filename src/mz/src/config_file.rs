@@ -51,7 +51,7 @@ pub struct ConfigFile {
 
 impl ConfigFile {
     /// Computes the default path for the configuration file.
-    pub  fn default_path() -> Result<PathBuf, Error> {
+    pub fn default_path() -> Result<PathBuf, Error> {
         let Some(mut path) = dirs::home_dir() else {
             panic!("unable to discover home directory")
         };
@@ -60,7 +60,7 @@ impl ConfigFile {
     }
 
     /// Loads a configuration file from the specified path.
-    pub  async fn load(path: PathBuf) -> Result<ConfigFile, Error> {
+    pub async fn load(path: PathBuf) -> Result<ConfigFile, Error> {
         let raw = fs::read_to_string(&path).await?;
         let parsed = toml_edit::de::from_str(&raw)?;
         let editable = raw.parse()?;
@@ -71,7 +71,7 @@ impl ConfigFile {
         })
     }
 
-    pub  fn load_profile<'a>(&'a self, name: &'a str) -> Result<Profile, Error> {
+    pub fn load_profile<'a>(&'a self, name: &'a str) -> Result<Profile, Error> {
         match self.parsed.profiles.get(name) {
             None => panic!("unknown profile {}", name.quoted()),
             Some(parsed) => Ok(Profile {
@@ -91,7 +91,7 @@ impl ConfigFile {
     }
 
     /// Gets the value of a configuration parameter.
-    pub  fn get_param(&self, name: &str) -> Result<Option<&str>, Error> {
+    pub fn get_param(&self, name: &str) -> Result<Option<&str>, Error> {
         match GLOBAL_PARAMS.get(name) {
             Some(param) => Ok((param.get)(&self.parsed)),
             None => panic!("unknown configuration parameter {}", name.quoted()),
@@ -108,7 +108,7 @@ impl ConfigFile {
     }
 
     /// Sets the value of a configuration parameter.
-    pub  async fn set_param(&self, name: &str, value: Option<&str>) -> Result<(), Error> {
+    pub async fn set_param(&self, name: &str, value: Option<&str>) -> Result<(), Error> {
         if !GLOBAL_PARAMS.contains_key(name) {
             panic!("unknown configuration parameter {}", name.quoted());
         }

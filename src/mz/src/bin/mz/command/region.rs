@@ -18,7 +18,7 @@
 use mz::context::Context;
 use mz::error::Error;
 
-use crate::{mixin::{ProfileArg, RegionArg}};
+use crate::mixin::{ProfileArg, RegionArg};
 
 #[derive(Debug, clap::Args)]
 pub struct RegionCommand {

@@ -25,7 +25,9 @@ use crate::config_file::ConfigFile;
 use crate::error::Error;
 use crate::ui::{OutputFormat, OutputFormatter};
 use mz_cloud_api::client::Client as CloudClient;
-use mz_cloud_api::config::{ClientBuilder as CloudClientBuilder, ClientConfig as CloudClientConfig};
+use mz_cloud_api::config::{
+    ClientBuilder as CloudClientBuilder, ClientConfig as CloudClientConfig,
+};
 use mz_frontegg_client::client::Client as AdminClient;
 use mz_frontegg_client::config::{
     ClientBuilder as AdminClientBuilder, ClientConfig as AdminClientConfig,
@@ -51,7 +53,7 @@ pub struct Context {
 
 impl Context {
     /// Loads the context from the provided arguments.
-    pub  async fn load(
+    pub async fn load(
         ContextLoadArgs {
             config_file_path,
             output_format,
@@ -72,10 +74,9 @@ impl Context {
     /// Converts this context into a [`ProfileContext`].
     ///
     /// If a profile is not specified, the default profile is activated.
-    pub  async fn activate_profile(self, name: Option<String>) -> Result<ProfileContext, Error> {
+    pub async fn activate_profile(self, name: Option<String>) -> Result<ProfileContext, Error> {
         let profile_name = name.unwrap_or_else(|| self.config_file.profile().into());
         let profile = self.config_file.load_profile(&profile_name)?;
-
         // TODO: Only one client should do the work.
         let admin_client = AdminClientBuilder::default()
             .endpoint(profile.admin_endpoint().parse().unwrap())
@@ -123,7 +124,7 @@ pub struct ProfileContext {
 }
 
 impl ProfileContext {
-    pub  fn activate_region(self, name: Option<String>) -> Result<RegionContext, Error> {
+    pub fn activate_region(self, name: Option<String>) -> Result<RegionContext, Error> {
         let profile = self
             .context
             .config_file

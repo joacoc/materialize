@@ -86,10 +86,8 @@
 use std::path::PathBuf;
 
 use mz::error::Error;
-use once_cell::sync::Lazy;
 
 use mz::context::{Context, ContextLoadArgs};
-use mz_build_info::{build_info, BuildInfo};
 use mz_ore::cli::CliConfig;
 
 use crate::command::app_password::AppPasswordCommand;
@@ -99,13 +97,10 @@ use crate::command::region::RegionCommand;
 use crate::command::secret::SecretCommand;
 use crate::command::sql::SqlCommand;
 use crate::command::user::UserCommand;
+use clap_clippy_hack::*;
 
 mod command;
 mod mixin;
-
-const BUILD_INFO: BuildInfo = build_info!();
-
-static VERSION: Lazy<String> = Lazy::new(|| BUILD_INFO.semver_version().to_string());
 
 // Do not add anything but structs/enums with Clap derives in this module!
 //
@@ -122,60 +117,62 @@ mod clap_clippy_hack {
     /// Command-line interface for Materialize.
     #[derive(Debug, clap::Parser)]
     #[clap(
-    long_about = None,
-    version = VERSION.as_str(),
-)]
-struct Args {
-    /// Set the configuration file.
-    #[clap(long, global = true, value_name = "PATH", env = "CONFIG")]
-    config: Option<PathBuf>,
-    #[clap(long, global = true, env = "FORMAT", value_enum, default_value_t)]
-    format: OutputFormat,
-    #[clap(long, global = true, env = "NO_COLOR")]
-    no_color: bool,
-    #[clap(subcommand)]
-    command: Command,
-}
+      long_about = None,
+        version = mz::VERSION.as_str(),
+    )]
 
-/// Specifies an output format.
-#[derive(Debug, Clone, Default, clap::ValueEnum)]
-enum OutputFormat {
-    /// Text output.
-    #[default]
-    Text,
-    /// JSON output.
-    Json,
-    /// CSV output.
-    Csv,
-}
+    pub struct Args {
+        /// Set the configuration file.
+        #[clap(long, global = true, value_name = "PATH", env = "CONFIG")]
+        pub(crate) config: Option<PathBuf>,
+        #[clap(long, global = true, env = "FORMAT", value_enum, default_value_t)]
+        pub(crate) format: OutputFormat,
+        #[clap(long, global = true, env = "NO_COLOR")]
+        pub(crate) no_color: bool,
+        #[clap(subcommand)]
+        pub(crate) command: Command,
+    }
 
-impl From<OutputFormat> for mz::ui::OutputFormat {
-    fn from(value: OutputFormat) -> Self {
-        match value {
-            OutputFormat::Text => mz::ui::OutputFormat::Text,
-            OutputFormat::Json => mz::ui::OutputFormat::Json,
-            OutputFormat::Csv => mz::ui::OutputFormat::Csv,
+    /// Specifies an output format.
+    #[derive(Debug, Clone, Default, clap::ValueEnum)]
+    pub enum OutputFormat {
+        /// Text output.
+        #[default]
+        Text,
+        /// JSON output.
+        Json,
+        /// CSV output.
+        Csv,
+    }
+
+    impl From<OutputFormat> for mz::ui::OutputFormat {
+        fn from(value: OutputFormat) -> Self {
+            match value {
+                OutputFormat::Text => mz::ui::OutputFormat::Text,
+                OutputFormat::Json => mz::ui::OutputFormat::Json,
+                OutputFormat::Csv => mz::ui::OutputFormat::Csv,
+            }
         }
     }
-}
 
-#[derive(Debug, clap::Subcommand)]
-enum Command {
-    /// Manage app passwords for your user account.
-    AppPassword(AppPasswordCommand),
-    /// Manage global configuration parameters for the CLI.
-    #[clap(subcommand)]
-    Config(ConfigCommand),
-    /// Manage authentication profiles for the CLI.
-    Profile(ProfileCommand),
-    /// Manage regions in your organization.
-    Region(RegionCommand),
-    /// Manage secrets in a region.
-    Secret(SecretCommand),
-    /// Execute SQL statements in a region.
-    Sql(SqlCommand),
-    /// Manage users in your organization.
-    User(UserCommand),
+    #[derive(Debug, clap::Subcommand)]
+    pub enum Command {
+        /// Manage app passwords for your user account.
+        AppPassword(AppPasswordCommand),
+        /// Manage global configuration parameters for the CLI.
+        #[clap(subcommand)]
+        Config(ConfigCommand),
+        /// Manage authentication profiles for the CLI.
+        Profile(ProfileCommand),
+        /// Manage regions in your organization.
+        Region(RegionCommand),
+        /// Manage secrets in a region.
+        Secret(SecretCommand),
+        /// Execute SQL statements in a region.
+        Sql(SqlCommand),
+        /// Manage users in your organization.
+        User(UserCommand),
+    }
 }
 
 #[tokio::main]
@@ -187,7 +184,6 @@ async fn main() -> Result<(), Error> {
 
     // TODO: Check for an updated version of `mz` and print a warning if one
     // is discovered. Can we use the GitHub tags API for this?
-
     let cx = Context::load(ContextLoadArgs {
         config_file_path: args.config,
         output_format: args.format.into(),

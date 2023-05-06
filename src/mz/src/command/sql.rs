@@ -23,6 +23,6 @@ pub struct RunArgs {
     pub psql_args: Vec<String>,
 }
 
-pub  async fn run(cx: &mut RegionContext, RunArgs { psql_args }: RunArgs) -> Result<(), Error> {
+pub async fn run(cx: &mut RegionContext, RunArgs { psql_args }: RunArgs) -> Result<(), Error> {
     todo!();
 }

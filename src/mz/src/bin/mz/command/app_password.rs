@@ -18,8 +18,8 @@
 use mz::context::Context;
 use mz_frontegg_client::client::app_password::CreateAppPasswordRequest;
 
-use mz::error::Error;
 use crate::mixin::ProfileArg;
+use mz::error::Error;
 
 #[derive(Debug, clap::Args)]
 pub struct AppPasswordCommand {
@@ -53,7 +53,9 @@ pub async fn run(cx: Context, cmd: AppPasswordCommand) -> Result<(), Error> {
             )
             .await?;
         }
-        AppPasswordSubcommand::List => { mz::command::app_password::list(&mut cx).await?; },
+        AppPasswordSubcommand::List => {
+            mz::command::app_password::list(&mut cx).await?;
+        }
     }
 
     Ok(())

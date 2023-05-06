@@ -15,8 +15,14 @@
 
 //! `mz` is the Materialize command-line interface (CLI).
 
+use mz_build_info::{build_info, BuildInfo};
+use once_cell::sync::Lazy;
+
+pub const BUILD_INFO: BuildInfo = build_info!();
+pub static VERSION: Lazy<String> = Lazy::new(|| BUILD_INFO.semver_version().to_string());
+
 pub mod command;
 pub mod config_file;
 pub mod context;
+pub mod error;
 pub mod ui;
-pub  mod error;

@@ -28,12 +28,12 @@ pub struct GetArgs<'a> {
     pub name: &'a str,
 }
 
-pub  fn get(cx: &mut Context, GetArgs { name }: GetArgs<'_>) -> Result<(), Error> {
+pub fn get(cx: &mut Context, GetArgs { name }: GetArgs<'_>) -> Result<(), Error> {
     let value = cx.config_file().get_param(name)?;
     cx.output_formatter().output_scalar(value)
 }
 
-pub  fn list(cx: &mut Context) -> Result<(), Error> {
+pub fn list(cx: &mut Context) -> Result<(), Error> {
     #[derive(Deserialize, Serialize, Tabled)]
     pub struct ConfigParam<'a> {
         #[tabled(rename = "Name")]
@@ -58,7 +58,7 @@ pub struct SetArgs<'a> {
     pub value: &'a str,
 }
 
-pub  async fn set(cx: &mut Context, SetArgs { name, value }: SetArgs<'_>) -> Result<(), Error> {
+pub async fn set(cx: &mut Context, SetArgs { name, value }: SetArgs<'_>) -> Result<(), Error> {
     cx.config_file().set_param(name, Some(value)).await
 }
 
@@ -66,6 +66,6 @@ pub struct RemoveArgs<'a> {
     pub name: &'a str,
 }
 
-pub  async fn remove(cx: &mut Context, RemoveArgs { name }: RemoveArgs<'_>) -> Result<(), Error> {
+pub async fn remove(cx: &mut Context, RemoveArgs { name }: RemoveArgs<'_>) -> Result<(), Error> {
     cx.config_file().set_param(name, None).await
 }

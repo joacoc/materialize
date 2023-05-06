@@ -20,8 +20,8 @@
 use mz_frontegg_auth::AppPassword as AuthAppPassword;
 use mz_frontegg_client::client::app_password::{AppPassword, CreateAppPasswordRequest};
 
-use crate::error::Error;
 use crate::context::ProfileContext;
+use crate::error::Error;
 
 pub struct CreateArgs<'a> {
     pub description: &'a str,
