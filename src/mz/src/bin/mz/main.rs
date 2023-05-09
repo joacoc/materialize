@@ -85,6 +85,7 @@
 
 use std::path::PathBuf;
 
+use command::profile::ProfileSubcommand;
 use mz::error::Error;
 
 use mz::context::{Context, ContextLoadArgs};

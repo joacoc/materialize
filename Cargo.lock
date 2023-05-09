@@ -3361,6 +3361,7 @@ dependencies = [
  "clap",
  "csv",
  "dirs",
+ "hyper",
  "indicatif",
  "maplit",
  "mz-build-info",

@@ -17,10 +17,57 @@
 //!
 //! Consult the user-facing documentation for details.
 
-use crate::{context::ProfileContext, error::Error};
+use mz_cloud_api::config::DEFAULT_ENDPOINT;
+use tokio::{select, sync::mpsc};
 
-pub async fn init(cx: &mut ProfileContext) -> Result<(), Error> {
-    todo!()
+use crate::{
+    context::{Context, ProfileContext},
+    error::Error, server::server,
+};
+
+pub async fn init(scx: &mut Context, profile_name: Option<String>) -> Result<(), Error> {
+    // Bind a web server to a local port to receive the app password.
+    let (tx, mut rx) = mpsc::unbounded_channel();
+    let (server, port) = server(tx);
+
+    // Build the login URL
+    let mut url = DEFAULT_ENDPOINT.clone();
+    url.path_segments_mut()
+        .expect("constructor validated URL can be a base")
+        .extend(&["account", "login"]);
+
+    let mut query_pairs = url.query_pairs_mut();
+    query_pairs.append_pair(
+        "redirectUrl",
+        &format!("/access/cli?redirectUri=http://localhost:{port}"),
+    );
+
+    let open_url = query_pairs.finish().as_str();
+
+    // curl "localhost:64634?email=joaquin%40materialize.com&clientId=13dec627-0d97-4abe-9a43-b897466ed99d&secret=13dec627-0d97-4abe-9a43-b897466ed99d"
+
+    // Open the browser to login user.
+    if let Err(_err) = open::that(open_url) {
+        println!(
+            "Could not open a browser to visit the login page <{:?}>: Please open the page yourself.",
+            open_url
+        )
+    }
+
+    // Wait for the browser to send the app password to our server.
+    select! {
+        _ = server => unreachable!("server should not shut down"),
+        result = rx.recv() => {
+            match result {
+                Some((email, app_password)) => {
+                    println!("{}, {}", email, app_password);
+                },
+                None => { panic!("failed to login via browser") },
+            }
+        }
+    }
+
+    Ok(())
 }
 
 pub async fn list(cx: &mut ProfileContext) -> Result<(), Error> {

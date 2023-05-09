@@ -16,6 +16,8 @@
 //! Configuration file management.
 
 use std::collections::BTreeMap;
+use std::fs::OpenOptions;
+use std::io::Read;
 use std::path::PathBuf;
 
 use maplit::btreemap;
@@ -61,9 +63,25 @@ impl ConfigFile {
 
     /// Loads a configuration file from the specified path.
     pub async fn load(path: PathBuf) -> Result<ConfigFile, Error> {
-        let raw = fs::read_to_string(&path).await?;
-        let parsed = toml_edit::de::from_str(&raw)?;
-        let editable = raw.parse()?;
+        // Create the parent directory if it doesn't exist
+        if let Some(parent) = path.parent() {
+            if !parent.exists() {
+                fs::create_dir_all(parent).await?;
+            }
+        }
+
+        // Create the file if it doesn't exist
+        let mut file = OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create(true)
+            .open(&path)?;
+
+        let mut buffer = String::new();
+        file.read_to_string(&mut buffer)?;
+
+        let parsed = toml_edit::de::from_str(&buffer)?;
+        let editable = buffer.parse()?;
         Ok(ConfigFile {
             path,
             parsed,
@@ -72,14 +90,22 @@ impl ConfigFile {
     }
 
     pub fn load_profile<'a>(&'a self, name: &'a str) -> Result<Profile, Error> {
-        match self.parsed.profiles.get(name) {
-            None => panic!("unknown profile {}", name.quoted()),
-            Some(parsed) => Ok(Profile {
-                name,
-                parsed,
-                config_file: self,
-            }),
+        match &self.parsed.profiles {
+            Some(profiles) => match profiles.get(name) {
+                None => panic!("unknown profile {}", name.quoted()),
+                Some(parsed) => Ok(Profile {
+                    name,
+                    parsed,
+                    config_file: self,
+                }),
+            },
+            None => panic!("no profiles found"),
         }
+    }
+
+    pub fn save_profile<'a>(&self, name: String, profile: TomlProfile) -> Result<(), Error> {
+        self.parsed.profiles.get_or_insert(btreemap! {}).insert(name, profile);
+        Ok(())
     }
 
     pub fn profile(&self) -> &str {
@@ -187,7 +213,7 @@ type ProfileParam = ConfigParam<TomlProfile>;
 struct TomlConfigFile {
     profile: Option<String>,
     vault: Option<String>,
-    profiles: BTreeMap<String, TomlProfile>,
+    profiles: Option<BTreeMap<String, TomlProfile>>,
 }
 
 #[derive(Debug, Deserialize)]

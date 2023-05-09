@@ -25,4 +25,5 @@ pub mod command;
 pub mod config_file;
 pub mod context;
 pub mod error;
+mod server;
 pub mod ui;
