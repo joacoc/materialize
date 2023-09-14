@@ -17,7 +17,7 @@
 //!
 //! Consult the user-facing documentation for details.
 
-use std::io::{self, Write};
+use std::io::Write;
 
 use crate::{context::RegionContext, error::Error};
 
@@ -49,13 +49,10 @@ pub async fn create(
         force,
     }: CreateArgs<'_>,
 ) -> Result<(), Error> {
-    let mut buffer = String::new();
-
     // Ask the user to write the secret
     print!("Secret: ");
     let _ = std::io::stdout().flush();
-    io::stdin().read_line(&mut buffer)?;
-    buffer = buffer.trim().to_string();
+    let mut secret = rpassword::read_password().unwrap();
 
     // Retrieve information to open the psql shell sessions.
     let loading_spinner = cx.output_formatter().loading_spinner("Creating secret...");
@@ -81,8 +78,8 @@ pub async fn create(
     // 1. Decode function: decode('c2VjcmV0Cg==', 'base64')
     // 2. ASCII: 13de2601-24b4-4d8f-9931-375c0b2b5cd4
     // For case 2) we want to scape the value for a better experience.
-    if !buffer.starts_with("decode") {
-        buffer = format!("'{}'", buffer);
+    if !secret.starts_with("decode") {
+        secret = format!("'{}'", secret);
     }
 
     if force {
@@ -95,11 +92,11 @@ pub async fn create(
         commands.push("SET client_min_messages TO WARNING;".to_string());
         commands.push(format!(
             "CREATE SECRET IF NOT EXISTS {} AS {};",
-            name, buffer
+            name, secret
         ));
-        commands.push(format!("ALTER SECRET {} AS {};", name, buffer));
+        commands.push(format!("ALTER SECRET {} AS {};", name, secret));
     } else {
-        commands.push(format!("CREATE SECRET {} AS {};", name, buffer));
+        commands.push(format!("CREATE SECRET {} AS {};", name, secret));
     }
 
     commands.iter().for_each(|c| {
