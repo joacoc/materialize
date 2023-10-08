@@ -3603,6 +3603,34 @@ dependencies = [
 ]
 
 [[package]]
+name = "mz-balancerd"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "bytes",
+ "bytesize",
+ "clap",
+ "futures",
+ "jsonwebtoken",
+ "mz-build-info",
+ "mz-frontegg-auth",
+ "mz-orchestrator-tracing",
+ "mz-ore",
+ "mz-pgwire-common",
+ "num_cpus",
+ "openssl",
+ "semver",
+ "tokio",
+ "tokio-openssl",
+ "tokio-postgres",
+ "tokio-util",
+ "tracing",
+ "uuid",
+ "workspace-hack",
+]
+
+[[package]]
 name = "mz-build-id"
 version = "0.1.0"
 dependencies = [
@@ -3781,7 +3809,7 @@ dependencies = [
 
 [[package]]
 name = "mz-clusterd"
-version = "0.72.0-dev"
+version = "0.73.0-dev"
 dependencies = [
  "anyhow",
  "axum",
@@ -3975,7 +4003,7 @@ dependencies = [
 
 [[package]]
 name = "mz-environmentd"
-version = "0.72.0-dev"
+version = "0.73.0-dev"
 dependencies = [
  "anyhow",
  "askama",
@@ -3998,6 +4026,7 @@ dependencies = [
  "humantime",
  "hyper",
  "hyper-openssl",
+ "hyper-tls",
  "include_dir",
  "itertools",
  "jsonwebtoken",
@@ -4174,8 +4203,11 @@ dependencies = [
  "base64 0.13.1",
  "clap",
  "derivative",
+ "futures",
  "jsonwebtoken",
  "mz-ore",
+ "mz-repr",
+ "prometheus",
  "reqwest",
  "reqwest-middleware",
  "reqwest-retry",
@@ -4558,7 +4590,7 @@ dependencies = [
 
 [[package]]
 name = "mz-persist-client"
-version = "0.72.0-dev"
+version = "0.73.0-dev"
 dependencies = [
  "anyhow",
  "async-stream",
@@ -4609,11 +4641,13 @@ dependencies = [
 name = "mz-persist-txn"
 version = "0.0.0"
 dependencies = [
+ "crossbeam-channel",
  "differential-dataflow",
  "futures",
  "mz-ore",
  "mz-persist-client",
  "mz-persist-types",
+ "mz-timely-util",
  "prost",
  "timely",
  "tokio",
@@ -5550,7 +5584,7 @@ dependencies = [
 
 [[package]]
 name = "mz-testdrive"
-version = "0.72.0-dev"
+version = "0.73.0-dev"
 dependencies = [
  "anyhow",
  "async-compression",

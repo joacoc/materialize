@@ -99,7 +99,7 @@ use mz_build_info::BuildInfo;
 use mz_cloud_resources::{AwsExternalIdPrefix, CloudResourceController};
 use mz_controller::ControllerConfig;
 use mz_environmentd::{Listeners, ListenersConfig, BUILD_INFO};
-use mz_frontegg_auth::FronteggCliArgs;
+use mz_frontegg_auth::{Authentication, FronteggCliArgs};
 use mz_orchestrator::Orchestrator;
 use mz_orchestrator_kubernetes::{
     KubernetesImagePullPolicy, KubernetesOrchestrator, KubernetesOrchestratorConfig,
@@ -537,7 +537,7 @@ pub struct Args {
     #[clap(long, env = "HTTP_HOST_NAME")]
     http_host_name: Option<String>,
 
-    /// URL of the Web Console to redirect to from the /internal-console endpoint on the InternalHTTPServer
+    /// URL of the Web Console to proxy from the /internal-console endpoint on the InternalHTTPServer
     #[clap(long, env = "INTERNAL_CONSOLE_REDIRECT_URL")]
     internal_console_redirect_url: Option<String>,
 
@@ -648,7 +648,7 @@ fn run(mut args: Args) -> Result<(), anyhow::Error> {
 
     // Configure connections.
     let tls = args.tls.into_config()?;
-    let frontegg = args.frontegg.into_auth()?;
+    let frontegg = Authentication::from_args(args.frontegg, &metrics_registry)?;
 
     // Configure CORS.
     let allowed_origins = if !args.cors_allowed_origin.is_empty() {

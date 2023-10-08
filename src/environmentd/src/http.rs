@@ -36,15 +36,18 @@ use http::header::{AUTHORIZATION, CONTENT_TYPE};
 use http::{Method, Request, StatusCode};
 use hyper_openssl::MaybeHttpsStream;
 use mz_adapter::{AdapterError, AdapterNotice, Client, SessionClient};
-use mz_frontegg_auth::{Authentication as FronteggAuthentication, Error as FronteggError};
+use mz_frontegg_auth::{
+    Authentication as FronteggAuthentication, Error as FronteggError,
+    ExchangePasswordForTokenResponse,
+};
 use mz_http_util::DynamicFilterTarget;
 use mz_ore::cast::u64_to_usize;
 use mz_ore::metrics::MetricsRegistry;
 use mz_ore::server::{ConnectionHandler, Server};
 use mz_ore::str::StrExt;
+use mz_repr::user::ExternalUserMetadata;
 use mz_sql::session::user::{
-    ExternalUserMetadata, User, HTTP_DEFAULT_USER, SUPPORT_USER, SUPPORT_USER_NAME, SYSTEM_USER,
-    SYSTEM_USER_NAME,
+    User, HTTP_DEFAULT_USER, SUPPORT_USER, SUPPORT_USER_NAME, SYSTEM_USER, SYSTEM_USER_NAME,
 };
 use mz_sql::session::vars::{ConnectionCounter, DropConnection, VarInput};
 use openssl::ssl::{Ssl, SslContext};
@@ -62,6 +65,7 @@ use tracing::{error, warn};
 use crate::BUILD_INFO;
 
 mod catalog;
+mod console;
 mod memory;
 mod metrics;
 mod probe;
@@ -354,25 +358,6 @@ pub async fn handle_leader_promote(
     )
 }
 
-/// This route allows User Impersonation by using Teleport to proxy requests to the Internal HTTP Server.
-/// Teleport is configured to handle the user auth and then set an auth cookie stored in the user's browser
-/// that is tied to the host being proxied (the InternalHTTPServer). This /internal-console route accepts
-/// that request and then redirects the user's browser to a Web Console URL, and the Console code can
-/// then make further requests to the InternalHTTPServer using the teleport auth cookie now in the user's browser
-async fn handle_internal_console_redirect(
-    internal_console_redirect_url: &Option<String>,
-) -> Response {
-    if let Some(redirect_url) = internal_console_redirect_url {
-        Redirect::temporary(redirect_url).into_response()
-    } else {
-        (
-            StatusCode::BAD_REQUEST,
-            "Redirect URL is not correctly configured".to_string(),
-        )
-            .into_response()
-    }
-}
-
 impl InternalHttpServer {
     pub fn new(
         InternalHttpConfig {
@@ -385,6 +370,11 @@ impl InternalHttpServer {
         }: InternalHttpConfig,
     ) -> InternalHttpServer {
         let metrics = Metrics::register_into(&metrics_registry, "mz_internal_http");
+        let console_config = Arc::new(console::ConsoleProxyConfig::new(
+            internal_console_redirect_url,
+            "/internal-console".to_string(),
+        ));
+
         let router = base_router(BaseRouterConfig { profiling: true })
             .route(
                 "/metrics",
@@ -437,13 +427,20 @@ impl InternalHttpServer {
                 routing::get(catalog::handle_coordinator_check),
             )
             .route(
-                "/api/internal-console",
-                routing::get(|| async move {
-                    handle_internal_console_redirect(&internal_console_redirect_url).await
-                }),
+                "/internal-console",
+                routing::get(|| async { Redirect::temporary("/internal-console/") }),
+            )
+            .route(
+                "/internal-console/*path",
+                routing::get(console::handle_internal_console),
+            )
+            .route(
+                "/internal-console/",
+                routing::get(console::handle_internal_console),
             )
             .layer(middleware::from_fn(internal_http_auth))
             .layer(Extension(adapter_client_rx.shared()))
+            .layer(Extension(console_config))
             .layer(Extension(active_connection_count));
 
         let leader_router = Router::new()
@@ -650,25 +647,17 @@ async fn http_auth<B>(
     // First, extract the username from the certificate, validating that the
     // connection matches the TLS configuration along the way.
     let conn_protocol = req.extensions().get::<ConnProtocol>().unwrap();
-    let cert_user = match (tls_mode, &conn_protocol) {
-        (TlsMode::Disable, ConnProtocol::Http) => None,
+    match (tls_mode, &conn_protocol) {
+        (TlsMode::Disable, ConnProtocol::Http) => {}
         (TlsMode::Disable, ConnProtocol::Https { .. }) => unreachable!(),
         (TlsMode::Require, ConnProtocol::Http) => return Err(AuthError::HttpsRequired),
-        (TlsMode::Require, ConnProtocol::Https { .. }) => None,
-    };
+        (TlsMode::Require, ConnProtocol::Https { .. }) => {}
+    }
     let creds = match frontegg {
-        // If no Frontegg authentication, we can use the cert's username if
-        // present, otherwise the default HTTP user.
-        None => Credentials::User(cert_user),
+        // If no Frontegg authentication, use the default HTTP user.
+        None => Credentials::DefaultUser,
         Some(_) => {
             if let Some(basic) = req.headers().typed_get::<Authorization<Basic>>() {
-                if let Some(user) = cert_user {
-                    if basic.username() != user {
-                        return Err(AuthError::MismatchedUser(
-                        "user in client certificate did not match user specified in authorization header".to_string(),
-                    ));
-                    }
-                }
                 Credentials::Password {
                     username: basic.username().to_string(),
                     password: basic.password().to_string(),
@@ -739,7 +728,7 @@ async fn init_ws(
             }
         }
     } else if let WebSocketAuth::Basic { user, options, .. } = ws_auth {
-        (Credentials::User(Some(user)), options)
+        (Credentials::User(user), options)
     } else {
         anyhow::bail!("unexpected")
     };
@@ -757,7 +746,8 @@ async fn init_ws(
 }
 
 enum Credentials {
-    User(Option<String>),
+    User(String),
+    DefaultUser,
     Password { username: String, password: String },
     Token { token: String },
 }
@@ -777,10 +767,14 @@ async fn auth(
 
     // Then, handle Frontegg authentication if required.
     let user = match (frontegg, creds) {
-        // If no Frontegg authentication, use the requested user or the default
-        // HTTP user.
-        (None, Credentials::User(user)) => User {
-            name: user.unwrap_or_else(|| HTTP_DEFAULT_USER.name.to_string()),
+        // If no Frontegg authentication, allow the default user.
+        (None, Credentials::DefaultUser) => User {
+            name: HTTP_DEFAULT_USER.name.to_string(),
+            external_metadata: None,
+        },
+        // If no Frontegg authentication, allow a protocol-specified user.
+        (None, Credentials::User(name)) => User {
+            name,
             external_metadata: None,
         },
         // With frontegg disabled, specifying credentials is an error.
@@ -791,18 +785,21 @@ async fn auth(
         // be validated. In either case, if a username was specified in the
         // client cert, it must match that of the JWT.
         (Some(frontegg), creds) => {
-            let (user, token) = match creds {
-                Credentials::Password { username, password } => (
-                    Some(username),
-                    frontegg
-                        .exchange_password_for_token(&password)
-                        .await?
-                        .access_token,
-                ),
-                Credentials::Token { token } => (None, token),
-                Credentials::User(_) => return Err(AuthError::MissingHttpAuthentication),
+            let claims = match creds {
+                Credentials::Password { username, password } => {
+                    let ExchangePasswordForTokenResponse { claims, .. } = frontegg
+                        .exchange_password_for_token(&password, username)
+                        .await?;
+                    claims
+                }
+                Credentials::Token { token } => {
+                    let claims = frontegg.validate_access_token(&token, None)?;
+                    claims
+                }
+                Credentials::DefaultUser | Credentials::User(_) => {
+                    return Err(AuthError::MissingHttpAuthentication)
+                }
             };
-            let claims = frontegg.validate_access_token(&token, user.as_deref())?;
             User {
                 external_metadata: Some(ExternalUserMetadata {
                     user_id: claims.user_id,

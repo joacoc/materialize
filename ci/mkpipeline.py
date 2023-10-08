@@ -59,8 +59,6 @@ so it is executed.""",
 
     parser.add_argument("--coverage", action="store_true")
     parser.add_argument("pipeline", type=str)
-    # TODO Empty argument, used in tests pipeline, remove
-    parser.add_argument("rest", nargs=argparse.REMAINDER)
     args = parser.parse_args()
 
     # Make sure we have an up to date view of main.
@@ -103,7 +101,7 @@ so it is executed.""",
         for step in pipeline["steps"]:
             # Coverage runs are slower
             if "timeout_in_minutes" in step:
-                step["timeout_in_minutes"] *= 2
+                step["timeout_in_minutes"] *= 3
 
             if step.get("coverage") == "skip":
                 step["skip"] = True
@@ -117,6 +115,9 @@ so it is executed.""",
     prioritize_pipeline(pipeline)
 
     permit_rerunning_successful_steps(pipeline)
+
+    add_test_selection_block(pipeline, args.pipeline)
+
     # Remove the Materialize-specific keys from the configuration that are
     # only used to inform how to trim the pipeline and for coverage runs.
     for step in pipeline["steps"]:
@@ -166,12 +167,43 @@ def prioritize_pipeline(pipeline: Any) -> None:
 
 def permit_rerunning_successful_steps(pipeline: Any) -> None:
     for config in pipeline["steps"]:
-        if "trigger" in config or "wait" in config:
-            # Trigger and Wait steps do not allow rerunning
+        if "trigger" in config or "wait" in config or "block" in config:
             continue
         config.setdefault("retry", {}).setdefault("manual", {}).setdefault(
             "permit_on_passed", True
         )
+
+
+def add_test_selection_block(pipeline: Any, pipeline_name: str) -> None:
+    selection_step = {
+        "prompt": "What tests would you like to run? As a convenience, leaving all tests unchecked will run all tests.",
+        "blocked_state": "running",
+        "fields": [
+            {
+                "select": "Tests",
+                "key": "tests",
+                "options": [],
+                "multiple": True,
+                "required": False,
+            }
+        ],
+        "if": 'build.source == "ui"',
+    }
+
+    if pipeline_name == "nightly":
+        selection_step["block"] = "Nightly test selection"
+    elif pipeline_name == "release-qualification":
+        selection_step["block"] = "Release Qualification test selection"
+    else:
+        return
+
+    for step in pipeline["steps"]:
+        if "id" not in step or step["id"] in ("analyze", "build-x86_64"):
+            continue
+
+        selection_step["fields"][0]["options"].append({"value": step["id"]})
+
+    pipeline["steps"].insert(0, selection_step)
 
 
 def trim_pipeline(pipeline: Any, coverage: bool) -> None:
