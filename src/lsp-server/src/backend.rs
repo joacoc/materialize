@@ -25,10 +25,11 @@ use ropey::Rope;
 use serde::Serialize;
 use serde_json::{json, Value};
 use tokio::sync::Mutex;
-use tower_lsp::jsonrpc::{Error, ErrorCode, Result};
+use tower_lsp::jsonrpc::Result;
 use tower_lsp::lsp_types::*;
 use tower_lsp::{Client, LanguageServer};
 
+use crate::utils::{build_error, offset_to_position};
 use crate::{PKG_NAME, PKG_VERSION};
 
 /// Default formatting width to use in the [Backend::formatting] implementation.
@@ -407,32 +408,5 @@ impl Backend {
     /// Returns true if Jinja code is detected.
     fn is_jinja(&self, s: &str, code: String) -> bool {
         s == "unexpected character in input: {" && self.contains_jinja_code(&code)
-    }
-}
-
-/// This functions is a helper function that converts an offset in the file to a (line, column).
-///
-/// It is useful when translating an ofsset returned by [mz_sql_parser::parser::parse_statements]
-/// to an (x,y) position in the text to represent the error in the correct token.
-fn offset_to_position(offset: usize, rope: &Rope) -> Option<Position> {
-    let line = rope.try_char_to_line(offset).ok()?;
-    let first_char_of_line = rope.try_line_to_char(line).ok()?;
-    let column = offset - first_char_of_line;
-
-    // Convert to u32.
-    let line_u32 = line.try_into().ok()?;
-    let column_u32 = column.try_into().ok()?;
-
-    Some(Position::new(line_u32, column_u32))
-}
-
-/// Builds a [tower_lsp::jsonrpc::Error]
-///
-/// Use this function to map normal errors to the one the trait expects
-fn build_error(message: &'static str) -> tower_lsp::jsonrpc::Error {
-    Error {
-        code: ErrorCode::InternalError,
-        message: std::borrow::Cow::Borrowed(message),
-        data: None,
     }
 }

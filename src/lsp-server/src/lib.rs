@@ -91,3 +91,5 @@ pub static PKG_NAME: Lazy<String> = Lazy::new(|| env!("CARGO_PKG_NAME").to_strin
 pub mod backend;
 /// Provides SQL snippets for Materialize.
 pub mod snippets;
+/// Provides util functions for the crate.
+mod utils;
